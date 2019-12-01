@@ -10,10 +10,7 @@
 (defn get-fuel
   "Calculates the required fuel for a given mass"
   [mass]
-  (-> mass (/ 3) (Math/floor) (- 2) (int)))
-
-(defn part-one []
-  (reduce + (map get-fuel data)))
+  (- (quot mass 3) 2))
 
 (defn get-fuel-recursive
   "Calculates the required fuel for a given mass
@@ -24,9 +21,9 @@
       0
       (+ fuel (get-fuel-recursive fuel)))))
 
-(defn part-two []
-  (reduce + (map get-fuel-recursive data)))
+(defn solve [solver]
+  (reduce + (map solver data)))
 
-(do
-  (println
-   (str (part-one) "\n" (part-two))))
+(defn part-one [] (solve get-fuel))
+(defn part-two [] (solve get-fuel-recursive))
+(println (str (part-one) "\n" (part-two)))
