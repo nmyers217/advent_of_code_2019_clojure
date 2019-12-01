@@ -27,5 +27,6 @@
 (defn part-two []
   (reduce + (map get-fuel-recursive data)))
 
-(part-one)
-(part-two)
+(do
+  (println
+   (str (part-one) "\n" (part-two))))
