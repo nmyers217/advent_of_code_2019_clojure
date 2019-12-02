@@ -2,19 +2,22 @@
   (:require [clojure.java.io :as io]))
 
 (def data
-  (->> "day_02.txt"
-       io/resource
-       slurp
-       (#(str "[" % "]"))
-       read-string))
+  (-> "day_02.txt"
+      io/resource
+      slurp
+      (#(str "[" % "]"))
+      read-string))
 
-(defn get-state [data]
+(defn get-state
+  "Get the inital state for a program"
+  [data]
   {:ip 0
    :data data
-   :ops {1 +
-         2 *}})
+   :ops {1 + 2 *}})
 
-(defn get-next-state [state]
+(defn get-next-state
+  "Advance program state to its next state"
+  [state]
   (let [ip (:ip state)
         data (:data state)
         op-code (data ip)]
@@ -29,31 +32,33 @@
          :data (assoc data result-loc result)
          :ops (:ops state)}))))
 
-(defn prime-program [noun verb data]
+(defn prime-data
+  "Prime program data with a noun ad verb"
+  [noun verb data]
   (-> data
       (assoc 1 noun)
       (assoc 2 verb)))
 
-(defn run-program [prev-state state]
+(defn run-program
+  "Advance a program's state until completion"
+  [prev-state state]
   (if (nil? state)
     prev-state
     (run-program state (get-next-state state))))
 
-(defn run-and-get-output [noun verb data]
+(defn run-and-get-output
+  "Given a noun verb and some data,
+  run a full program and extract its output"
+  [noun verb data]
   (let [state (->>
                data
-               (prime-program noun verb)
+               (prime-data noun verb)
                get-state)
         end-state (run-program nil state)]
     ((:data end-state) 0)))
 
 (defn part-one []
   (run-and-get-output 12 2 data))
-
-(defn get-inputs []
-  (for [noun (range 0 100)
-        verb (range 0 100)]
-    [noun verb]))
 
 (defn part-two []
   (reduce
@@ -63,7 +68,9 @@
        (if (= output 19690720)
          (reduced (+ (* 100 noun) verb))
          output)))
-   (get-inputs)))
+   (for [noun (range 0 100)
+         verb (range 0 100)]
+     [noun verb])))
 
 (do
   (println (str (part-one) "\n" (part-two))))
