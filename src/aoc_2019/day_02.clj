@@ -9,11 +9,11 @@
       read-string))
 
 (defn get-state
-  "Get the inital state for a program"
-  [data]
-  {:ip 0
-   :data data
-   :ops {1 + 2 *}})
+  "Get a map that represents the state of the computer"
+  ([data]
+   {:ip 0 :data data :ops {1 + 2 *}})
+  ([data ip]
+   {:ip ip :data data :ops {1 + 2 *}}))
 
 (defn get-next-state
   "Advance program state to its next state"
@@ -21,30 +21,27 @@
   (let [ip (:ip state)
         data (:data state)
         op-code (data ip)]
-    (if (= op-code 99)
-      nil
+    (when (not= op-code 99)
       (let [op (get (:ops state) op-code)
-            input-1 (data (data (+ ip 1)))
+            input-1 (data (data (inc ip)))
             input-2 (data (data (+ ip 2)))
             result-loc (data (+ ip 3))
             result (op input-1 input-2)]
-        {:ip (+ ip 4)
-         :data (assoc data result-loc result)
-         :ops (:ops state)}))))
+        (get-state
+         (assoc data result-loc result)
+         (+ ip 4))))))
 
 (defn prime-data
   "Prime program data with a noun ad verb"
   [noun verb data]
-  (-> data
-      (assoc 1 noun)
-      (assoc 2 verb)))
+  (-> data (assoc 1 noun) (assoc 2 verb)))
 
 (defn run-program
   "Advance a program's state until completion"
   [prev-state state]
-  (if (nil? state)
-    prev-state
-    (run-program state (get-next-state state))))
+  (if state
+    (run-program state (get-next-state state))
+    prev-state))
 
 (defn run-and-get-output
   "Given a noun verb and some data,
@@ -63,13 +60,11 @@
 (defn part-two []
   (reduce
    (fn [res [noun verb]]
-     (let [output
-           (run-and-get-output noun verb data)]
+     (let [output (run-and-get-output noun verb data)]
        (if (= output 19690720)
          (reduced (+ (* 100 noun) verb))
          output)))
-   (for [noun (range 0 100)
-         verb (range 0 100)]
+   (for [noun (range 0 100) verb (range 0 100)]
      [noun verb])))
 
 (do
