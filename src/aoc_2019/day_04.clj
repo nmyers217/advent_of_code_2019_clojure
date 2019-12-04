@@ -7,13 +7,17 @@
   (let [[beg end] (map read-string (s/split input #"-"))]
     (range beg end)))
 
-(defn has-adjacent? [str]
+(defn has-adjacent?
+  "Check a string two see if a character occurs twice in a row"
+  [str]
   (true?
    (reduce (fn [a b]
              (if (= a b) (reduced true) b))
            str)))
 
-(defn is-ascending? [str]
+(defn not-descending?
+  "Check if the digits in a string do not descend"
+  [str]
   (not
    (false?
     (reduce (fn [a b]
@@ -22,17 +26,9 @@
                 b))
             str))))
 
-(defn is-valid? [num]
-  (let [s (str num)]
-    (and (has-adjacent? s) (is-ascending? s))))
-
-(defn part-one []
-  (->> input
-       read-range
-       (filter is-valid?)
-       count))
-
-(defn has-adjacent-pair? [str]
+(defn has-adjacent-pair?
+  "This time we check for a pair of EXACTLY 2 chars"
+  [str]
   (:status
    (reduce
     (fn [state c]
@@ -46,17 +42,20 @@
     {:last nil :num-so-far 0 :status nil}
     str)))
 
+(defn is-valid? [num]
+  (let [s (str num)]
+    (and (has-adjacent? s) (not-descending? s))))
 
 (defn is-more-valid? [num]
   (let [s (str num)]
-    (and (is-ascending? s) (has-adjacent-pair? s))))
+    (and (not-descending? s) (has-adjacent-pair? s))))
 
-
-(defn part-two []
+(defn get-answer [validator]
   (->> input
        read-range
-       (filter is-more-valid?)
+       (filter validator)
        count))
 
-(do
-  (println (str (part-one) "\n" (part-two))))
+(defn part-one [] (get-answer is-valid?))
+(defn part-two [] (get-answer is-more-valid?))
+(do (println (str (part-one) "\n" (part-two))))
