@@ -10,21 +10,12 @@
 (defn has-adjacent?
   "Check a string two see if a character occurs twice in a row"
   [str]
-  (true?
-   (reduce (fn [a b]
-             (if (= a b) (reduced true) b))
-           str)))
+  (->> str (re-find #"(\d)\1") some?))
 
 (defn not-descending?
   "Check if the digits in a string do not descend"
   [str]
-  (not
-   (false?
-    (reduce (fn [a b]
-              (if (< (int b) (int a))
-                (reduced false)
-                b))
-            str))))
+  (apply <= (map int str)))
 
 (defn has-adjacent-pair?
   "This time we check for a pair of EXACTLY 2 chars"
@@ -42,20 +33,16 @@
     {:last nil :num-so-far 0 :status nil}
     str)))
 
-(defn is-valid? [num]
-  (let [s (str num)]
-    (and (has-adjacent? s) (not-descending? s))))
-
-(defn is-more-valid? [num]
-  (let [s (str num)]
-    (and (not-descending? s) (has-adjacent-pair? s))))
-
-(defn get-answer [validator]
+(defn get-answer [& validators]
   (->> input
        read-range
-       (filter validator)
+       (map str)
+       (filter (apply every-pred validators))
        count))
 
-(defn part-one [] (get-answer is-valid?))
-(defn part-two [] (get-answer is-more-valid?))
+(defn part-one []
+  (get-answer has-adjacent? not-descending?))
+(defn part-two []
+  (get-answer has-adjacent-pair? not-descending?))
+
 (do (println (str (part-one) "\n" (part-two))))
