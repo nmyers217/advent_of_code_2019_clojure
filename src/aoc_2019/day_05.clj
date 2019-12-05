@@ -20,14 +20,14 @@
     :modes {0 (fn [memory ip] (memory (memory ip)))
             1 (fn [memory ip] (memory ip))}
     ;; All the operations we support
-    :ops {1 {:arity :binary :fn + :write? :memory}
-          2 {:arity :binary :fn * :write? :memory}
-          3 {:arity nil :fn (comp read-string read-line) :write? :memory}
-          4 {:arity :unary :fn println :write? nil}
-          5 {:arity :unary :fn #(not= % 0) :write? :ip}
-          6 {:arity :unary :fn #(= % 0) :write? :ip}
-          7 {:arity :binary :fn #(if (< %1 %2) 1 0) :write? :memory}
-          8 {:arity :binary :fn #(if (= %1 %2) 1 0) :write? :memory}
+    :ops {1 {:arity 2 :write? :memory :fn +}
+          2 {:arity 2 :write? :memory :fn *}
+          3 {:arity 0 :write? :memory :fn (comp read-string read-line)}
+          4 {:arity 1 :write? nil :fn println}
+          5 {:arity 1 :write? :ip :fn #(not= % 0)}
+          6 {:arity 1 :write? :ip :fn #(= % 0)}
+          7 {:arity 2 :write? :memory :fn #(if (< %1 %2) 1 0)}
+          8 {:arity 2 :write? :memory :fn #(if (= %1 %2) 1 0)}
           99 nil}}))
 
 (defn num->op-code [num]
@@ -38,23 +38,15 @@
              (s/join $)
              (str $ temp))
         code-str (subs op 3)
-        code (if (not= code-str "99")
+        code (if (s/starts-with? code-str "0")
                (-> code-str last str read-string)
-               99)
+               code-str)
         modes (as-> op $
                 (subs $ 0 3)
                 (s/split $ #"")
-                (map read-string $) (reverse $))]
+                (map read-string $)
+                (reverse $))]
     {:code code :param-modes modes}))
-
-(defn num-params [arity]
-  (case arity nil 0 :unary 1 :binary 2))
-
-(defn next-ip [{:keys [arity write?] :as op} ip]
-  (when op
-    (let [param-count (num-params arity)
-          write-count (if write? 1 0)]
-      (+ ip 1 param-count write-count))))
 
 (defn next-state
   "Advance program state to its next state"
@@ -68,22 +60,20 @@
                          (mode-fn memory (+ ip off))))]
     (when (and (not= code 99) (get ops code))
       (let [{:keys [arity fn write?] :as op} (get ops code)
-            np (num-params arity)
-            offsets (take np (drop 1 (range)))
-            offsets-with-mode (zipmap offsets param-modes)
+            ip-offsets (take arity (drop 1 (range)))
+            offsets-with-mode (zipmap ip-offsets param-modes)
             params (map param-lookup offsets-with-mode)
             result (apply fn params)
-            write-offset (+ np 1)]
+            write-offset (+ arity 1)]
         (merge state
-               {:memory (if (= write? :memory)
-                          (assoc memory
-                                 (param-lookup [write-offset 1])
-                                 result)
-                          memory)
-                :ip (if (and (= write? :ip) result)
-                      (param-lookup [write-offset
-                                     (first (drop np param-modes))])
-                      (next-ip op ip))})))))
+               {:memory
+                (if (= write? :memory)
+                  (assoc memory (param-lookup [write-offset 1]) result)
+                  memory)
+                :ip
+                (if (and (= write? :ip) result)
+                  (param-lookup [write-offset (first (drop arity param-modes))])
+                  (+ ip 1 arity (if write? 1 0)))})))))
 
 (defn run-program
   "Advance a program's state until completion"
@@ -93,6 +83,8 @@
     prev-state))
 
 ;; NOTE: when prompted for input provide 1 for part 1 and 5 for part 2
-(->> data
-     initial-state
-     (run-program nil))
+(do
+  (->> data
+       initial-state
+       (run-program nil))
+  (println ""))
