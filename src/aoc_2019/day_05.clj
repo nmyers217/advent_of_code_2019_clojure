@@ -20,11 +20,15 @@
     :modes {0 (fn [memory ip] (memory (memory ip)))
             1 (fn [memory ip] (memory ip))}
     ; All the operations we support
-    :ops {1 {:arity :binary :fn + :write? true}
-          2 {:arity :binary :fn * :write? true}
+    :ops {1 {:arity :binary :fn + :write? :memory}
+          2 {:arity :binary :fn * :write? :memory}
           ; FIXME: this is hard-coded to always input 1 for now
-          3 {:arity nil :fn (fn [] 1) :write? true}
+          3 {:arity nil :fn (comp read-string read-line) :write? :memory}
           4 {:arity :unary :fn println :write? nil}
+          5 {:arity :unary :fn #(not= % 0) :write? :ip}
+          6 {:arity :unary :fn #(= % 0) :write? :ip}
+          7 {:arity :binary :fn #(if (< %1 %2) 1 0) :write? :memory}
+          8 {:arity :binary :fn #(if (= %1 %2) 1 0) :write? :memory}
           99 nil}}))
 
 (defn num->op-code [num]
@@ -32,7 +36,10 @@
         op (str
             (s/join (repeat (- 5 (count temp)) "0"))
             temp)
-        code (read-string (subs op 3))
+        code-str (subs op 3)
+        code (if (not= code-str "99")
+               (-> code-str last str read-string)
+               99)
         modes (->> (-> op (subs 0 3) (s/split #""))
                    (map read-string)
                    reverse)]
@@ -41,16 +48,16 @@
 (defn num-params [arity]
   (case arity nil 0 :unary 1 :binary 2))
 
-(defn next-ip [op ip]
+(defn next-ip [{:keys [arity write?] :as op} ip]
   (when op
-    (let [param-count (num-params (:arity op))
-          write-count (if (:write? op) 1 0)]
+    (let [param-count (num-params arity)
+          write-count (if (= write? :memory) 1 0)]
       (+ ip 1 param-count write-count))))
 
 (defn next-state
   "Advance program state to its next state"
   [{:keys [ip memory modes ops] :as state}]
-  ;(println (str memory " @ " ip))
+  (println (str memory " @ " ip))
   (let [{:keys [code param-modes]} (num->op-code (memory ip))
         param-lookup (fn [[off mode]]
                        (let [mode-fn (get modes mode)]
@@ -62,11 +69,14 @@
             offsets-with-mode (zipmap offsets param-modes)
             params (map param-lookup offsets-with-mode)
             result (apply fn params)
-            result-loc (when write? (memory (+ ip np 1)))]
-        (merge state {:memory (if write?
-                                (assoc memory result-loc result)
-                                memory)
-                      :ip (next-ip op ip)})))))
+            result-loc (memory (+ ip np 1))]
+        (merge state
+               {:memory (if (= write? :memory)
+                          (assoc memory result-loc result)
+                          memory)
+                :ip (if (and (= write? :ip) result)
+                      result-loc
+                      (next-ip op ip))})))))
 
 (defn run-program
   "Advance a program's state until completion"
@@ -75,9 +85,8 @@
     (run-program state (next-state state))
     prev-state))
 
-(defn part-one []
-  (run-program nil (initial-state data)))
-
-(->> data
+;; TODO: get op-codes 5 & 6 working
+;; NOTE: when prompted for input provide 1 for part 1 and 5 for part 2
+(->> [3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9]
      initial-state
      (run-program nil))
