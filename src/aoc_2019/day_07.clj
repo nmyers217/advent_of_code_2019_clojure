@@ -1,7 +1,8 @@
 (ns aoc-2019.day-07
   (:require [clojure.java.io :as io]
             [clojure.string :as s]
-            [clojure.math.combinatorics :as combo]))
+            [clojure.math.combinatorics :as combo]
+            [clojure.core.async :as async]))
 
 (def data
   (-> "day_07.txt"
@@ -82,53 +83,74 @@
     (run-program state (next-state state))
     prev-state))
 
-(defn amplifiers [phases]
-  [{:phase (phases 0) :input 0   :output nil}
-   {:phase (phases 1) :input nil :output nil}
-   {:phase (phases 2) :input nil :output nil}
-   {:phase (phases 3) :input nil :output nil}
-   {:phase (phases 4) :input nil :output nil}])
+;; TODO: pass in the io-mapping
+(defn io-state [phases]
+  (let [s {0 {:std-in (async/chan) :std-out 1}
+           1 {:std-in (async/chan) :std-out 2}
+           2 {:std-in (async/chan) :std-out 3}
+           3 {:std-in (async/chan) :std-out 4}
+           4 {:std-in (async/chan) :std-out (async/chan)}}]
+    ;; Prime the first channel with phase and input 0
+    (async/onto-chan (:std-in (get s 0)) [(phases 0) 0] nil)
+    ;; Send rest of the phases to their channels
+    (doseq [i (range 1 (count phases))]
+      (async/onto-chan (:std-in (get s i)) [(phases i)] nil))
+    s))
 
+;; Thread safe logging for debugging stuff
+(def log-lock (Object.))
+(defn log [& args]
+  (locking log-lock
+    (apply println args)))
+
+;; TODO: pass in the io-mapping
 (defn run-amplifier-controller-software
-  [data phases]
-  (let [amps (atom (amplifiers phases))
-        amp-idx (atom 0)]
-    (do
-      (while (< @amp-idx 5)
-        (let [std-in-src (atom '(:phase :input))
-              std-in
-              (fn []
-                (let [source (first @std-in-src)
-                      res (source (@amps @amp-idx))]
-                  (do
-                    (swap! std-in-src rest)
-                    res)))
-              std-out
-              (fn [new]
-                (do
-                  (swap! amps
-                         #(update-in % [@amp-idx :output]
-                                     (fn [old] new)))
-                  (when (< (inc @amp-idx) 5)
-                    (swap! amps
-                           #(update-in % [(inc @amp-idx) :input]
-                                       (fn [old] new))))))
-              program (initial-state data 0 std-in std-out)]
-          (do
-            ;;(println @amps)
-            (run-program nil program)
-            (swap! amp-idx inc))))
-      (->> @amps last :output))))
+  [data io-data]
+  (let [run (fn [amp]
+              (let [io-d (get io-data amp)
+                    i (fn []
+                        (let [res (async/<!! (:std-in io-d))]
+                          ;;(log amp "<=" res)
+                          res))
+                    o (fn [v]
+                        (let [out-amp (:std-out io-d)
+                              std-out (if (int? out-amp)
+                                        (:std-in (get io-data out-amp))
+                                        out-amp)]
+                          ;;(log amp "=>" v)
+                          (async/go (async/>! std-out v))))
+                    s (initial-state data 0 i o)]
+                (future (run-program nil s))))
+        result (->> (range 0 (count (keys io-data)))
+                    (map run) ; run all the amps
+                    (map deref) ; wait for them all to finish
+                    (interleave (vals io-data)) ; pair them up with data
+                    (partition 2)
+                    last ; get the last amp
+                    first ; get its io data
+                    :std-out ; get its std-out
+                    (#(if (int? %) (get io-data %) %)) ; indirection
+                    async/<!!) ; wait for the output
+        ]
+    result))
 
-(defn part-one []
+(defn part-one [data]
   (->>
    (combo/permuted-combinations (range 0 5) 5)
    (map
     (comp
      (partial run-amplifier-controller-software data)
+     io-state
      vec))
    (apply max)))
 
-(do
-  (println
-   (str (part-one) "\n")))
+(defn part-two [data]
+  (->>
+   (combo/permuted-combinations (range 5 10) 5)))
+
+(run-amplifier-controller-software
+ [3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5]
+ (io-state [9 8 7 6 5]))
+
+;;(part-two [3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5])
+;;(do (println (part-one data) "\n"))
