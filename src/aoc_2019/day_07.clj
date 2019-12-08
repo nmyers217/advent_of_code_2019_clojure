@@ -83,13 +83,14 @@
     (run-program state (next-state state))
     prev-state))
 
-;; TODO: pass in the io-mapping
-(defn io-state [phases]
-  (let [s {0 {:std-in (async/chan) :std-out 1}
-           1 {:std-in (async/chan) :std-out 2}
-           2 {:std-in (async/chan) :std-out 3}
-           3 {:std-in (async/chan) :std-out 4}
-           4 {:std-in (async/chan) :std-out (async/chan)}}]
+(defn io-state [io-mapping phases]
+  (let [s {0 {:std-in (async/chan) :std-out (get io-mapping 0)}
+           1 {:std-in (async/chan) :std-out (get io-mapping 1)}
+           2 {:std-in (async/chan) :std-out (get io-mapping 2)}
+           3 {:std-in (async/chan) :std-out (get io-mapping 3)}
+           4 {:std-in (async/chan) :std-out (if (get io-mapping 4)
+                                              (get io-mapping 4)
+                                              (async/chan))}}]
     ;; Prime the first channel with phase and input 0
     (async/onto-chan (:std-in (get s 0)) [(phases 0) 0] nil)
     ;; Send rest of the phases to their channels
@@ -103,7 +104,6 @@
   (locking log-lock
     (apply println args)))
 
-;; TODO: pass in the io-mapping
 (defn run-amplifier-controller-software
   [data io-data]
   (let [run (fn [amp]
@@ -129,7 +129,7 @@
                     last ; get the last amp
                     first ; get its io data
                     :std-out ; get its std-out
-                    (#(if (int? %) (get io-data %) %)) ; indirection
+                    (#(if (int? %) (:std-in (get io-data %)) %)) ; indirection
                     async/<!!) ; wait for the output
         ]
     result))
@@ -140,17 +140,18 @@
    (map
     (comp
      (partial run-amplifier-controller-software data)
-     io-state
+     (partial io-state {0 1, 1 2, 2 3, 3 4, 4 nil})
      vec))
    (apply max)))
 
 (defn part-two [data]
   (->>
-   (combo/permuted-combinations (range 5 10) 5)))
+   (combo/permuted-combinations (range 5 10) 5)
+   (map
+    (comp
+     (partial run-amplifier-controller-software data)
+     (partial io-state {0 1, 1 2, 2 3, 3 4, 4 0})
+     vec))
+   (apply max)))
 
-(run-amplifier-controller-software
- [3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5]
- (io-state [9 8 7 6 5]))
-
-;;(part-two [3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5])
-;;(do (println (part-one data) "\n"))
+(do (println (part-one data) "\n" (part-two data)))
