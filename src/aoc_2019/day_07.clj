@@ -23,7 +23,9 @@
     ;; All the operations we support
     :ops {1 {:arity 2 :write? :memory :fn +}
           2 {:arity 2 :write? :memory :fn *}
+          ;; FIXME: lets just use read-line if input-fn isn't provided
           3 {:arity 0 :write? :memory :fn input-fn}
+          ;; FIXME: lets use println if output-fn isn't provided
           4 {:arity 1 :write? nil :fn output-fn}
           5 {:arity 1 :write? :ip :fn #(not= % 0)}
           6 {:arity 1 :write? :ip :fn #(= % 0)}
@@ -83,7 +85,9 @@
     (run-program state (next-state state))
     prev-state))
 
-(defn io-state [io-mapping phases]
+(defn io-state
+  "Get some IO state that maps out how to do IO redirection"
+  [io-mapping phases]
   (let [s {0 {:std-in (async/chan) :std-out (get io-mapping 0)}
            1 {:std-in (async/chan) :std-out (get io-mapping 1)}
            2 {:std-in (async/chan) :std-out (get io-mapping 2)}
@@ -105,6 +109,8 @@
     (apply println args)))
 
 (defn run-amplifier-controller-software
+  "Runs a pipeline of programs for some given program data
+  and IO redirection data, returns the final output of the last program"
   [data io-data]
   (let [run (fn [amp]
               (let [io-d (get io-data amp)
@@ -129,9 +135,8 @@
                     last ; get the last amp
                     first ; get its io data
                     :std-out ; get its std-out
-                    (#(if (int? %) (:std-in (get io-data %)) %)) ; indirection
-                    async/<!!) ; wait for the output
-        ]
+                    (#(if (int? %) (:std-in (get io-data %)) %)) ; redirection
+                    async/<!!)] ; wait for the output
     result))
 
 (defn part-one [data]
