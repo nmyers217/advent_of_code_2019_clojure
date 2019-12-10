@@ -23,7 +23,14 @@
     ;; NOTE: i start to get some bad results past ~12 digit precision
     (map #(round2 10 (/ % m)) v)))
 
-(defn asteroid-locs
+(defn angle
+  "Get the angle in degrees of a unit vector relative to the negative y axis"
+  [[x y]]
+  (let [deg (Math/toDegrees (Math/atan2 x (- y)))]
+    (if (neg? deg) (+ deg 360) deg)))
+
+(defn asteroid-points
+  "Get the location of all the asteroids"
   [input]
   (->> input
        s/split-lines
@@ -37,32 +44,89 @@
        (into #{})))
 
 (defn trajectory-data
+  "Get relevant trajectory data for an asteroid relative to a point"
   [point asteroid]
   (let [d   (map - asteroid point)
         m   (mag d)
         u   (normalize d)]
     {:point asteroid :delta d :mag m :unit u}))
 
-(defn asteroids-visible
+(defn all-trajectories
+  "Get relevant trajectory data for all the asteroids relative to a point"
   [asteroid-set point]
-  (let [others (into [] (set/difference asteroid-set #{point}))
-        diffs  (map #(map - %1 point) others)
-        mags   (map mag diffs)
-        norms  (map normalize diffs)
-        all    (partition 4 (interleave others diffs mags norms))
-        sorted (sort-by (fn [coll] (nth coll 2)) > all)]
-    (->> sorted
-         (reduce (fn [m [loc diff mag norm]]
-                   (merge m {norm loc}))
-                 {})
-         count)))
+  (let [others       (into [] (set/difference asteroid-set #{point}))]
+    (map #(trajectory-data point %) others)))
+
+(defn asteroids-visible
+  "Get the number of asteroids visible from a point"
+  [asteroid-set point]
+  (->> point
+       (all-trajectories asteroid-set)
+       (sort-by :mag >)
+       (reduce (fn [m {p :point u :unit}] (merge m {u p})) {})
+       count))
+
+(defn find-monitoring-station
+  "Find the best location for a monitoring station and how many asteroids it sees"
+  [input]
+  (let [asteroids (asteroid-points input)]
+    (->> asteroids
+         (map (fn [point] [point (asteroids-visible asteroids point)]))
+         (sort-by second >)
+         first)))
+
+(def test-input ".#....#####...#..
+##...##.#####..##
+##...#...#.#####.
+..#.....#...###..
+..#.#.....#....##")
+
+(def more-test-input ".#..##.###...#######
+##.############..##.
+.#.######.########.#
+.###.#######.####.#.
+#####.##.#.##.###.##
+..#####..#.#########
+####################
+#.####....###.#.#.##
+##.#################
+#####.##.###..####..
+..######..##.#######
+####.##.####...##..#
+.#####..#.######.###
+##...#.##########...
+#.##########.#######
+.####.#.###.###.#.##
+....##.##.###..#####
+.#.#.###########.###
+#.#.#.#####.####.###
+###.##.####.##.#..##")
+
+(defn vaporization-order
+  "Determine the best order in which to vaporize all the asteroids"
+  [asteroid-set point]
+  (let [rots-by-angle (->> point
+                           (all-trajectories asteroid-set)
+                           (map #(assoc % :angle (angle (:unit %))))
+                           (group-by :angle)
+                           (sort-by first)
+                           (map (fn [[u xs]] [u (sort-by :mag xs)]))
+                           (map second))
+        num-rots (->> rots-by-angle (map count) (apply max))]
+    (->> (range 0 num-rots)
+         (mapcat (fn [i] (map #(nth % i nil) rots-by-angle)))
+         (map :point)
+         (filter #(not (nil? %))))))
 
 (defn part-one []
-  (let [asteroids (asteroid-locs input)]
-    (->> asteroids
-         (map (fn [loc] [loc (asteroids-visible asteroids loc)]))
-         (sort-by second >)
-         first
-         second)))
+  (second (find-monitoring-station input)))
 
-(println (part-one))
+(defn part-two []
+  (as-> input $
+       (find-monitoring-station $)
+       (first $)
+       (vaporization-order (asteroid-locs input) $)
+       (nth $ 199)
+       ((fn [[x y]] (+ (* x 100) y)) $)))
+
+(do (println (str (part-one) "\n" (part-two))))
