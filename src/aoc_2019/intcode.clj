@@ -109,7 +109,7 @@
    (intcode memory (comp read-string read-line) println))
 
   ([memory input-fn output-fn]
-   (let [padded-memory (vec (concat memory (repeat 128 0)))]
+   (let [padded-memory (vec (concat memory (repeat 1024 0)))]
      (intcode padded-memory input-fn output-fn 0 0)))
 
   ([memory input-fn output-fn ip rb]
