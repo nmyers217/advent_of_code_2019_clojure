@@ -5,7 +5,6 @@
             [aoc-2019.intcode :as ic]
             [clojure.string :as s]))
 
-
 (defn robot []
   {:dir [0 -1]
    :pos [0 0]
@@ -34,7 +33,6 @@
                (and paint? (= input 0)) (set/union blacks #{pos})
                (and paint? (= input 1)) (set/difference blacks #{pos})
                true blacks)}))
-
 
 (defn process-output
   [{:keys [pos whites blacks]}]
