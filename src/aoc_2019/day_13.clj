@@ -59,6 +59,9 @@
 
 (do (part-one))
 
+;; TODO pass in a sequence of inputs to make
+;; TODO track score somehow
+;; TODO returns nil if not all inputs exhausted, otherwise it returns the score
 (defn play-with-joystick [file]
   (let [q      (atom [])
         p      (fn [] (->> @q read-instructions play print-screen))
@@ -69,3 +72,13 @@
         @q)))
 
 (play-with-joystick "day_13.txt")
+
+;; TODO create this tree structure that accounts for every possible input sequence
+;; TODO investigate using a zipper for this one
+;;         -1                     0                     1
+;;  -1      0      1      -1      0      1       -1     0      1
+;;-1 0 1 -1 0 1 -1 0 1  -1 0 1 -1 0 1 -1 0 1  -1 0 1 -1 0 1 -1 0 1
+;; TODO for every possible path we try to play that sequence of inputs
+;; TODO we map to a score if we get one, if we can't play the amount of moves then nil
+;; TODO trace all the paths to a nil
+;; TODO find the path that leads to the biggest score, then that's the answer
