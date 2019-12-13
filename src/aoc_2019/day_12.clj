@@ -4,7 +4,6 @@
 
 (def input (-> "day_12.txt" io/resource io/reader line-seq))
 
-
 (defn read-vec
   "Read a 3d vector from a string"
   [vec-str]
@@ -85,8 +84,8 @@
   this will return the count of time slices that each axis needs to cycle back"
   [axis moons]
   (let [axes (fn [ms]
-               (let [ps     (transpose (map :pos ms))
-                     vs     (transpose (map :vel ms))]
+               (let [ps (transpose (map :pos ms))
+                     vs (transpose (map :vel ms))]
                  {:p-axis (get ps axis) :v-axis (get vs axis)}))
 
         seen-already? (fn [s m]
