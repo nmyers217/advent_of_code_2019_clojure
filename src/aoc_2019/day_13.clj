@@ -15,20 +15,25 @@
         @q)))
 
 (defn read-instruction [[x y id]]
-  {:x x :y y :t (id->tile id)})
+  {:x x :y y :id id :t (id->tile id)})
 
 (defn read-instructions [output]
   (->> output
        (partition 3)
        (map read-instruction)))
 
+;; TODO handle tracking the score somehow
 (defn play [instructions]
   (let [width  (inc (apply max (map :x instructions)))
         height (inc (apply max (map :y instructions)))
         build  (fn [n v] (into [] (repeat n v)))
         screen (build height (build width (tile->c :empty)))
-        paint  (fn [s x y t] (update-in s [y x] (fn [v] (tile->c t))))]
-    (reduce (fn [s {:keys [x y t]}] (paint s x y t))
+        paint  (fn [s x y t id]
+                 (if (= [x y] [-1 0])
+                   (do (println (str "Score: " id))
+                       s)
+                   (update-in s [y x] (fn [v] (tile->c t)))))]
+    (reduce (fn [s {:keys [x y t id]}] (paint s x y t id))
             screen instructions)))
 
 (defn print-screen [game]
@@ -53,3 +58,14 @@
        println))
 
 (do (part-one))
+
+(defn play-with-joystick [file]
+  (let [q      (atom [])
+        p      (fn [] (->> @q read-instructions play print-screen))
+        memory (assoc (ic/read-intcode-file file) 0 2)
+        i-fn   (fn [] (p) ((comp read-string read-line)))
+        o-fn   (fn [v] (swap! q conj v))]
+    (do (ic/intcode memory i-fn o-fn)
+        @q)))
+
+(play-with-joystick "day_13.txt")
