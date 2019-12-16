@@ -109,14 +109,21 @@
    (intcode memory (comp read-string read-line) println))
 
   ([memory input-fn output-fn]
-   (let [padded-memory (vec (concat memory (repeat 1024 0)))]
-     (intcode padded-memory input-fn output-fn 0 0)))
+   (intcode memory input-fn output-fn nil))
 
-  ([memory input-fn output-fn ip rb]
+  ([memory input-fn output-fn memory-output-fn]
+   (let [padded-memory (vec (concat memory (repeat 1024 0)))]
+     (intcode padded-memory input-fn output-fn memory-output-fn 0 0)))
+
+  ([memory input-fn output-fn memory-output-fn ip rb]
    (when *intcode-debug* (println ip "@" memory))
-   (when (not= (memory ip) 99)
+   (if (not= (memory ip) 99)
      (recur (next-memory memory input-fn output-fn ip rb)
             input-fn
             output-fn
+            memory-output-fn
             (next-ip memory ip rb)
-            (next-rb memory ip rb)))))
+            (next-rb memory ip rb))
+     (when (not (nil? memory-output-fn))
+       (do (memory-output-fn memory)
+           nil)))))
