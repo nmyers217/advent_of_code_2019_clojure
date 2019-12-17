@@ -112,7 +112,7 @@
    (intcode memory input-fn output-fn nil))
 
   ([memory input-fn output-fn memory-output-fn]
-   (let [padded-memory (vec (concat memory (repeat 1024 0)))]
+   (let [padded-memory (vec (concat memory (repeat 4092 0)))]
      (intcode padded-memory input-fn output-fn memory-output-fn 0 0)))
 
   ([memory input-fn output-fn memory-output-fn ip rb]
